@@ -1,0 +1,16 @@
+[
+  {
+    "id": "d82f5656-d526-4bce-8673-dc00c8118617",
+    "username": "admin",
+    "password_hash": "$2b$12$K1r0DVMreSFRQ2i5Va7/2.slE.phtpDfnwACzXkcTcblQWHJ/jzg6",
+    "is_admin": true,
+    "results": [
+      {
+        "date": "2026-02-20T18:59:55.182749",
+        "score": 0,
+        "total": 4,
+        "time_taken": 33
+      }
+    ]
+  }
+]
