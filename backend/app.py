@@ -1,3 +1,5 @@
+import csv
+import io
 import os
 import json
 import uuid
@@ -6,7 +8,7 @@ from functools import wraps
 
 import bcrypt
 import jwt
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -16,6 +18,7 @@ SECRET_KEY = os.environ.get("JWT_SECRET", "change-me-in-production")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
 QUESTIONS_FILE = os.path.join(DATA_DIR, "questions.json")
+SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 
 
 # ---------------------------------------------------------------------------
@@ -30,6 +33,38 @@ def read_json(path):
 def write_json(path, data):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def read_settings():
+    if not os.path.exists(SETTINGS_FILE):
+        return {"welcome_text": ""}
+    return read_json(SETTINGS_FILE)
+
+
+def write_settings(data):
+    write_json(SETTINGS_FILE, data)
+
+
+def find_user(users, user_id):
+    return next((u for u in users if u["id"] == user_id), None)
+
+
+def user_has_results(user):
+    return bool(user.get("results"))
+
+
+def quiz_questions_safe():
+    questions = read_json(QUESTIONS_FILE)
+    return [
+        {
+            "id": q["id"],
+            "question": q["question"],
+            "options": q["options"],
+            "time_limit": q["time_limit"],
+            "image": q.get("image"),
+        }
+        for q in questions
+    ]
 
 
 def _get_token():
@@ -105,6 +140,8 @@ def register():
         "username": username,
         "password_hash": password_hash,
         "is_admin": is_admin,
+        "quiz_started": False,
+        "quiz_started_at": None,
         "results": [],
     }
     users.append(user)
@@ -147,21 +184,63 @@ def login():
 # Quiz routes
 # ---------------------------------------------------------------------------
 
+@app.route("/api/quiz/status", methods=["GET"])
+@require_auth
+def get_quiz_status():
+    settings = read_settings()
+    users = read_json(USERS_FILE)
+    user = find_user(users, request.current_user["id"])
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    quiz_started = bool(user.get("quiz_started"))
+    has_result = user_has_results(user)
+    questions = read_json(QUESTIONS_FILE)
+
+    return jsonify({
+        "welcome_text": settings.get("welcome_text", ""),
+        "quiz_started": quiz_started,
+        "has_result": has_result,
+        "can_take_quiz": not quiz_started and not has_result,
+        "question_count": len(questions),
+    })
+
+
+@app.route("/api/quiz/start", methods=["POST"])
+@require_auth
+def start_quiz():
+    users = read_json(USERS_FILE)
+    user_id = request.current_user["id"]
+    user = find_user(users, user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    if user.get("quiz_started") or user_has_results(user):
+        return jsonify({"error": "Quiz already started"}), 403
+
+    questions = read_json(QUESTIONS_FILE)
+    if not questions:
+        return jsonify({"error": "No questions available"}), 400
+
+    user["quiz_started"] = True
+    user["quiz_started_at"] = datetime.datetime.utcnow().isoformat()
+    write_json(USERS_FILE, users)
+
+    return jsonify({"questions": quiz_questions_safe()})
+
+
 @app.route("/api/quiz", methods=["GET"])
 @require_auth
 def get_quiz():
-    questions = read_json(QUESTIONS_FILE)
-    safe = [
-        {
-            "id": q["id"],
-            "question": q["question"],
-            "options": q["options"],
-            "time_limit": q["time_limit"],
-            "image": q.get("image"),
-        }
-        for q in questions
-    ]
-    return jsonify(safe)
+    users = read_json(USERS_FILE)
+    user = find_user(users, request.current_user["id"])
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    if not user.get("quiz_started"):
+        return jsonify({"error": "Quiz not started"}), 403
+
+    return jsonify(quiz_questions_safe())
 
 
 @app.route("/api/quiz/submit", methods=["POST"])
@@ -170,6 +249,18 @@ def submit_quiz():
     data = request.get_json() or {}
     answers = data.get("answers", {})   # {str(question_id): option_index | null}
     time_taken = data.get("time_taken", 0)
+
+    users = read_json(USERS_FILE)
+    user_id = request.current_user["id"]
+    user = find_user(users, user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    if not user.get("quiz_started"):
+        return jsonify({"error": "Quiz not started"}), 403
+
+    if user_has_results(user):
+        return jsonify({"error": "Quiz already submitted"}), 403
 
     questions = read_json(QUESTIONS_FILE)
 
@@ -191,7 +282,6 @@ def submit_quiz():
         })
 
     # Persist result
-    users = read_json(USERS_FILE)
     user_id = request.current_user["id"]
     for u in users:
         if u["id"] == user_id:
@@ -200,6 +290,14 @@ def submit_quiz():
                 "score": score,
                 "total": len(questions),
                 "time_taken": time_taken,
+                "questions": [
+                    {
+                        "id": r["id"],
+                        "is_correct": r["is_correct"],
+                        "user_answer": r["user_answer"],
+                    }
+                    for r in results
+                ],
             })
             break
     write_json(USERS_FILE, users)
@@ -276,5 +374,131 @@ def admin_delete_question(qid):
     return jsonify({"message": "Deleted"})
 
 
+def _build_admin_results():
+    questions = read_json(QUESTIONS_FILE)
+    users = read_json(USERS_FILE)
+
+    question_meta = [
+        {"id": q["id"], "question": q["question"]}
+        for q in questions
+    ]
+
+    participants = []
+    for user in users:
+        participants.append({
+            "id": user["id"],
+            "username": user["username"],
+            "quiz_started": bool(user.get("quiz_started")),
+            "quiz_started_at": user.get("quiz_started_at"),
+            "results": user.get("results", []),
+        })
+
+    return {"questions": question_meta, "participants": participants}
+
+
+def _question_score(result, question_id):
+    for q in result.get("questions", []):
+        if q.get("id") == question_id:
+            return 1 if q.get("is_correct") else 0
+    return ""
+
+
+@app.route("/api/admin/results", methods=["GET"])
+@require_admin
+def admin_get_results():
+    return jsonify(_build_admin_results())
+
+
+@app.route("/api/admin/results/export", methods=["GET"])
+@require_admin
+def admin_export_results():
+    data = _build_admin_results()
+    questions = data["questions"]
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    header = ["username", "attempt_date", "time_taken_seconds"]
+    header.extend(f"Q{q['id']}" for q in questions)
+    header.extend(["total_score", "total_questions"])
+    writer.writerow(header)
+
+    for participant in data["participants"]:
+        for attempt in participant["results"]:
+            row = [
+                participant["username"],
+                attempt.get("date", ""),
+                attempt.get("time_taken", ""),
+            ]
+            row.extend(_question_score(attempt, q["id"]) for q in questions)
+            row.extend([
+                attempt.get("score", ""),
+                attempt.get("total", ""),
+            ])
+            writer.writerow(row)
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=quiz-results.csv"},
+    )
+
+
+@app.route("/api/admin/results", methods=["DELETE"])
+@require_admin
+def admin_delete_result():
+    data = request.get_json() or {}
+    user_id = data.get("user_id")
+    date = data.get("date")
+
+    if not user_id or not date:
+        return jsonify({"error": "user_id and date are required"}), 400
+
+    users = read_json(USERS_FILE)
+    found = False
+    for user in users:
+        if user["id"] != user_id:
+            continue
+        found = True
+
+        if date == "__abandoned__":
+            if not user.get("quiz_started") or user_has_results(user):
+                return jsonify({"error": "No abandoned attempt found"}), 404
+        else:
+            before = len(user.get("results", []))
+            user["results"] = [r for r in user.get("results", []) if r.get("date") != date]
+            if len(user["results"]) == before:
+                return jsonify({"error": "Result not found"}), 404
+
+        user["quiz_started"] = False
+        user["quiz_started_at"] = None
+        break
+
+    if not found:
+        return jsonify({"error": "User not found"}), 404
+
+    write_json(USERS_FILE, users)
+    return jsonify({"message": "Deleted"})
+
+
+@app.route("/api/admin/settings", methods=["GET"])
+@require_admin
+def admin_get_settings():
+    return jsonify(read_settings())
+
+
+@app.route("/api/admin/settings", methods=["PUT"])
+@require_admin
+def admin_update_settings():
+    data = request.get_json() or {}
+    welcome_text = data.get("welcome_text", "")
+    if not isinstance(welcome_text, str):
+        return jsonify({"error": "welcome_text must be a string"}), 400
+
+    settings = {"welcome_text": welcome_text.strip()}
+    write_settings(settings)
+    return jsonify(settings)
+
+
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5002)

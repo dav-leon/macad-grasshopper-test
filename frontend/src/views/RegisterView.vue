@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen flex items-center justify-center p-4">
     <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md">
-      <h1 class="text-3xl font-bold text-center mb-2 text-blue-400">QuizApp</h1>
+      <h1 class="text-3xl font-bold text-center mb-2 text-blue-400">MACAD GH-Quiz</h1>
       <p class="text-center text-gray-400 text-sm mb-8">Create a new account</p>
 
       <form @submit.prevent="handleRegister" class="space-y-4">

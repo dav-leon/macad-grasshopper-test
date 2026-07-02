@@ -2,6 +2,29 @@
   <div class="min-h-screen p-6 max-w-6xl mx-auto">
     <h1 class="text-2xl font-bold mb-6 text-purple-400">Admin Panel</h1>
 
+    <!-- Welcome text -->
+    <div class="bg-gray-800 rounded-xl p-6 shadow-xl mb-8">
+      <h2 class="font-semibold text-gray-200 mb-1">Quiz Welcome Screen</h2>
+      <p class="text-sm text-gray-500 mb-4">
+        This text is shown to participants before they press Start. The welcome screen has no timer.
+      </p>
+      <textarea
+        v-model="welcomeText"
+        rows="6"
+        class="w-full bg-gray-700 rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y mb-4"
+        placeholder="Enter welcome message for quiz participants…"
+      ></textarea>
+      <div class="flex items-center gap-4">
+        <button
+          @click="saveWelcomeText"
+          :disabled="savingWelcome"
+          class="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+        >{{ savingWelcome ? 'Saving…' : 'Save Welcome Text' }}</button>
+        <span v-if="welcomeSaved" class="text-green-400 text-sm">Saved!</span>
+        <span v-if="welcomeError" class="text-red-400 text-sm">{{ welcomeError }}</span>
+      </div>
+    </div>
+
     <!-- Stats row -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
       <div class="bg-gray-800 rounded-xl p-5 text-center">
@@ -117,6 +140,98 @@
                   <button
                     v-else
                     @click="deleteConfirm = q.id"
+                    class="text-red-400 hover:text-red-300 text-xs font-medium transition-colors"
+                  >Delete</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Participant results -->
+    <div class="bg-gray-800 rounded-xl overflow-hidden shadow-xl mt-8">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+        <h2 class="font-semibold text-gray-200">Participant Results</h2>
+        <button
+          @click="exportCsv"
+          :disabled="!hasAttempts || exporting"
+          class="bg-green-700 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+        >{{ exporting ? 'Exporting…' : 'Export CSV' }}</button>
+      </div>
+
+      <div v-if="resultsLoading" class="text-center text-gray-500 py-12">
+        Loading results…
+      </div>
+
+      <div v-else-if="!hasAttempts" class="text-center text-gray-500 py-12">
+        No quiz attempts yet.
+      </div>
+
+      <div v-else class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-gray-400 bg-gray-700 text-xs uppercase tracking-wider">
+            <tr>
+              <th class="sticky left-0 z-20 bg-gray-700 px-4 py-3 text-left w-[150px] min-w-[150px]">Participant</th>
+              <th class="sticky left-[150px] z-20 bg-gray-700 px-4 py-3 text-left w-[170px] min-w-[170px]">Date</th>
+              <th class="sticky left-[320px] z-20 bg-gray-700 px-4 py-3 text-left w-[70px] min-w-[70px] border-r border-gray-600">Time</th>
+              <th
+                v-for="q in resultQuestions"
+                :key="q.id"
+                class="px-4 py-3 text-center min-w-[56px]"
+                :title="q.question"
+              >Q{{ q.id }}</th>
+              <th class="sticky right-[96px] z-20 bg-gray-700 px-4 py-3 text-center w-[96px] min-w-[96px] border-l border-gray-600">Total</th>
+              <th class="sticky right-0 z-20 bg-gray-700 px-4 py-3 text-left w-[96px] min-w-[96px]">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-700">
+            <tr
+              v-for="row in resultRows"
+              :key="row.key"
+              class="group hover:bg-gray-700/30 transition-colors"
+            >
+              <td class="sticky left-0 z-10 bg-gray-800 group-hover:bg-gray-700 px-4 py-3 text-gray-200 font-medium w-[150px] min-w-[150px]">{{ row.username }}</td>
+              <td class="sticky left-[150px] z-10 bg-gray-800 group-hover:bg-gray-700 px-4 py-3 text-gray-400 whitespace-nowrap w-[170px] min-w-[170px]">
+                {{ row.abandoned ? 'Started (not completed)' : formatDate(row.date) }}
+              </td>
+              <td class="sticky left-[320px] z-10 bg-gray-800 group-hover:bg-gray-700 px-4 py-3 text-gray-400 w-[70px] min-w-[70px] border-r border-gray-700">{{ row.abandoned ? '—' : row.timeTaken + 's' }}</td>
+              <td
+                v-for="q in resultQuestions"
+                :key="q.id"
+                class="px-4 py-3 text-center min-w-[56px]"
+              >
+                <span v-if="row.abandoned" class="text-gray-600">—</span>
+                <span
+                  v-else-if="row.questionScores[q.id] === 1"
+                  class="text-green-400 font-bold"
+                >1</span>
+                <span
+                  v-else-if="row.questionScores[q.id] === 0"
+                  class="text-red-400 font-bold"
+                >0</span>
+                <span v-else class="text-gray-600">—</span>
+              </td>
+              <td class="sticky right-[96px] z-10 bg-gray-800 group-hover:bg-gray-700 px-4 py-3 text-center font-bold text-yellow-400 w-[96px] min-w-[96px] border-l border-gray-700">
+                <span v-if="row.abandoned" class="text-gray-500 text-sm font-normal">Abandoned</span>
+                <span v-else>{{ row.score }}/{{ row.total }}</span>
+              </td>
+              <td class="sticky right-0 z-10 bg-gray-800 group-hover:bg-gray-700 px-4 py-3 w-[96px] min-w-[96px]">
+                <div class="flex items-center gap-2">
+                  <template v-if="resultDeleteConfirm === row.key">
+                    <button
+                      @click="deleteResult(row)"
+                      class="text-red-400 hover:text-red-300 text-xs font-medium transition-colors"
+                    >Confirm?</button>
+                    <button
+                      @click="resultDeleteConfirm = null"
+                      class="text-gray-400 hover:text-gray-300 text-xs transition-colors"
+                    >Cancel</button>
+                  </template>
+                  <button
+                    v-else
+                    @click="resultDeleteConfirm = row.key"
                     class="text-red-400 hover:text-red-300 text-xs font-medium transition-colors"
                   >Delete</button>
                 </div>
@@ -266,9 +381,18 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import axios from 'axios'
 
 const questions = ref([])
+const welcomeText = ref('')
+const savingWelcome = ref(false)
+const welcomeSaved = ref(false)
+const welcomeError = ref('')
+const resultQuestions = ref([])
+const participants = ref([])
+const resultsLoading = ref(false)
+const exporting = ref(false)
 const showForm = ref(false)
 const editingId = ref(null)
 const deleteConfirm = ref(null)
+const resultDeleteConfirm = ref(null)
 const saving = ref(false)
 const formError = ref('')
 
@@ -329,6 +453,55 @@ const avgTimeLimit = computed(() => {
   return Math.round(sum / questions.value.length)
 })
 
+const hasAttempts = computed(() => resultRows.value.length > 0)
+
+const resultRows = computed(() => {
+  const rows = []
+  for (const participant of participants.value) {
+    for (const [index, attempt] of (participant.results || []).entries()) {
+      const questionScores = {}
+      for (const q of attempt.questions || []) {
+        questionScores[q.id] = q.is_correct ? 1 : 0
+      }
+      rows.push({
+        key: `${participant.id}-${attempt.date || index}`,
+        userId: participant.id,
+        username: participant.username,
+        date: attempt.date,
+        timeTaken: attempt.time_taken ?? '—',
+        score: attempt.score ?? 0,
+        total: attempt.total ?? resultQuestions.value.length,
+        questionScores,
+        abandoned: false,
+      })
+    }
+
+    if (participant.quiz_started && !(participant.results || []).length) {
+      rows.push({
+        key: `${participant.id}-__abandoned__`,
+        userId: participant.id,
+        username: participant.username,
+        date: '__abandoned__',
+        timeTaken: '—',
+        score: '—',
+        total: '—',
+        questionScores: {},
+        abandoned: true,
+      })
+    }
+  }
+  return rows.sort((a, b) => {
+    if (a.abandoned && !b.abandoned) return -1
+    if (!a.abandoned && b.abandoned) return 1
+    return (b.date || '').localeCompare(a.date || '')
+  })
+})
+
+function formatDate(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString()
+}
+
 function defaultForm() {
   return { question: '', options: ['', '', '', ''], answer: 0, time_limit: 30, image: null }
 }
@@ -340,6 +513,75 @@ async function loadQuestions() {
     questions.value = res.data
   } catch (e) {
     console.error('Failed to load questions', e)
+  }
+}
+
+async function loadSettings() {
+  try {
+    const res = await axios.get('/api/admin/settings')
+    welcomeText.value = res.data.welcome_text || ''
+  } catch (e) {
+    console.error('Failed to load settings', e)
+  }
+}
+
+async function saveWelcomeText() {
+  welcomeError.value = ''
+  welcomeSaved.value = false
+  savingWelcome.value = true
+  try {
+    await axios.put('/api/admin/settings', { welcome_text: welcomeText.value })
+    welcomeSaved.value = true
+    setTimeout(() => { welcomeSaved.value = false }, 2000)
+  } catch (e) {
+    welcomeError.value = e.response?.data?.error || 'Failed to save welcome text.'
+  } finally {
+    savingWelcome.value = false
+  }
+}
+
+async function loadResults() {
+  resultsLoading.value = true
+  try {
+    const res = await axios.get('/api/admin/results')
+    resultQuestions.value = res.data.questions || []
+    participants.value = res.data.participants || []
+  } catch (e) {
+    console.error('Failed to load results', e)
+  } finally {
+    resultsLoading.value = false
+  }
+}
+
+async function exportCsv() {
+  exporting.value = true
+  try {
+    const res = await axios.get('/api/admin/results/export', { responseType: 'blob' })
+    const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'quiz-results.csv'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    console.error('Failed to export results', e)
+  } finally {
+    exporting.value = false
+  }
+}
+
+async function deleteResult(row) {
+  if (!row.userId || !row.date) return
+  try {
+    await axios.delete('/api/admin/results', {
+      data: { user_id: row.userId, date: row.date },
+    })
+    resultDeleteConfirm.value = null
+    await loadResults()
+  } catch (e) {
+    console.error('Failed to delete result', e)
   }
 }
 
@@ -402,7 +644,11 @@ async function deleteQuestion(id) {
   }
 }
 
-onMounted(loadQuestions)
+onMounted(() => {
+  loadQuestions()
+  loadSettings()
+  loadResults()
+})
 </script>
 
 <style scoped>

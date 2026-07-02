@@ -4,7 +4,7 @@
       v-if="auth.token"
       class="bg-gray-800 border-b border-gray-700 px-6 py-3 flex items-center justify-between"
     >
-      <span class="font-bold text-blue-400 text-lg tracking-wide">QuizApp</span>
+      <span class="font-bold text-blue-400 text-lg tracking-wide">MACAD GH-Quiz</span>
       <div class="flex items-center gap-5 text-sm">
         <span class="text-gray-400">{{ auth.user?.username }}</span>
         <router-link

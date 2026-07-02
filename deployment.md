@@ -280,7 +280,7 @@ Paste (adjust paths if your folder name differs):
 
 ```ini
 [Unit]
-Description=Quiz App Flask Backend
+Description=MACAD GH-Quiz Flask Backend
 After=network.target
 
 [Service]

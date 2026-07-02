@@ -1,7 +1,47 @@
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center p-4">
     <!-- Loading -->
-    <div v-if="loading" class="text-gray-400 text-lg">Loading quiz…</div>
+    <div v-if="loading" class="text-gray-400 text-lg">Loading…</div>
+
+    <!-- Welcome screen -->
+    <div v-else-if="phase === 'welcome'" class="w-full max-w-2xl">
+      <div class="bg-gray-800 rounded-2xl p-8 shadow-2xl">
+        <h1 class="text-2xl font-bold text-white mb-6 text-center">Welcome</h1>
+        <div
+          class="text-gray-300 leading-relaxed whitespace-pre-wrap mb-8"
+        >{{ welcomeText || 'Welcome to the quiz. Press Start when you are ready.' }}</div>
+        <p class="text-sm text-amber-400/90 bg-amber-900/20 border border-amber-700/50 rounded-lg px-4 py-3 mb-8">
+          Once you press Start, you cannot leave and come back later. Make sure you are ready before continuing.
+        </p>
+        <button
+          @click="startQuiz"
+          :disabled="starting || questionCount === 0"
+          class="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed py-4 rounded-xl text-lg font-bold transition-colors"
+        >
+          {{ starting ? 'Starting…' : 'Start Quiz' }}
+        </button>
+        <p v-if="questionCount === 0" class="text-red-400 text-sm text-center mt-4">
+          No questions are available yet. Please check back later.
+        </p>
+        <p v-if="startError" class="text-red-400 text-sm text-center mt-4">{{ startError }}</p>
+      </div>
+    </div>
+
+    <!-- Already taken -->
+    <div v-else-if="phase === 'locked'" class="w-full max-w-2xl text-center">
+      <div class="bg-gray-800 rounded-2xl p-8 shadow-2xl">
+        <div class="text-5xl mb-4">🔒</div>
+        <h1 class="text-2xl font-bold text-white mb-3">Quiz Already Taken</h1>
+        <p class="text-gray-400 mb-2">
+          {{ hasResult
+            ? 'You have already completed this quiz.'
+            : 'You started this quiz but did not finish. You cannot take it again.' }}
+        </p>
+        <p class="text-sm text-gray-500">
+          Contact an administrator if you need to retake the quiz.
+        </p>
+      </div>
+    </div>
 
     <!-- Empty -->
     <div v-else-if="questions.length === 0" class="text-center">
@@ -102,15 +142,22 @@ import axios from 'axios'
 
 const router = useRouter()
 
-const questions = ref([])
+const phase = ref('loading') // loading | welcome | quiz | locked
+const welcomeText = ref('')
+const hasResult = ref(false)
+const questionCount = ref(0)
+const starting = ref(false)
+const startError = ref('')
 const loading = ref(true)
+
+const questions = ref([])
 const currentIndex = ref(0)
-const answers = ref({})   // { questionId: optionIndex }
+const answers = ref({})
 const timeLeft = ref(0)
 const startTime = ref(0)
 
 let timerInterval = null
-const circumference = 2 * Math.PI * 24  // r=24
+const circumference = 2 * Math.PI * 24
 
 const currentQuestion = computed(() => questions.value[currentIndex.value])
 
@@ -184,7 +231,6 @@ async function nextQuestion() {
 async function submitQuiz() {
   const timeTaken = Math.floor((Date.now() - startTime.value) / 1000)
 
-  // Convert answers: ensure null for unanswered questions
   const payload = {}
   for (const q of questions.value) {
     const ans = answers.value[q.id]
@@ -200,19 +246,52 @@ async function submitQuiz() {
     router.push('/result')
   } catch (e) {
     console.error('Submit failed', e)
+    if (e.response?.status === 403) {
+      phase.value = 'locked'
+      hasResult.value = true
+    }
+  }
+}
+
+async function startQuiz() {
+  startError.value = ''
+  starting.value = true
+  try {
+    const res = await axios.post('/api/quiz/start')
+    questions.value = res.data.questions || []
+    if (questions.value.length === 0) {
+      startError.value = 'No questions are available.'
+      return
+    }
+    phase.value = 'quiz'
+    startTime.value = Date.now()
+    startTimer()
+  } catch (e) {
+    startError.value = e.response?.data?.error || 'Failed to start quiz.'
+    if (e.response?.status === 403) {
+      phase.value = 'locked'
+    }
+  } finally {
+    starting.value = false
   }
 }
 
 onMounted(async () => {
   try {
-    const res = await axios.get('/api/quiz')
-    questions.value = res.data
-    if (questions.value.length > 0) {
-      startTime.value = Date.now()
-      startTimer()
+    const statusRes = await axios.get('/api/quiz/status')
+
+    welcomeText.value = statusRes.data.welcome_text || ''
+    hasResult.value = statusRes.data.has_result
+    questionCount.value = statusRes.data.question_count || 0
+
+    if (!statusRes.data.can_take_quiz) {
+      phase.value = 'locked'
+    } else {
+      phase.value = 'welcome'
     }
   } catch (e) {
-    console.error('Failed to load quiz', e)
+    console.error('Failed to load quiz status', e)
+    phase.value = 'welcome'
   } finally {
     loading.value = false
   }

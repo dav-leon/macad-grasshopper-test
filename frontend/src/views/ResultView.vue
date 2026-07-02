@@ -3,7 +3,7 @@
     <!-- No data guard -->
     <div v-if="!result" class="text-center">
       <p class="text-gray-400 text-lg mb-4">No results to display.</p>
-      <router-link to="/quiz" class="text-blue-400 hover:text-blue-300">Take a quiz →</router-link>
+      <router-link to="/login" class="text-blue-400 hover:text-blue-300">Go to login</router-link>
     </div>
 
     <div v-else class="w-full max-w-2xl">
@@ -16,13 +16,6 @@
         <p class="text-sm text-gray-500">
           {{ Math.round((result.score / result.total) * 100) }}% correct
         </p>
-
-        <div class="mt-6 flex justify-center gap-4">
-          <router-link
-            to="/quiz"
-            class="bg-blue-600 hover:bg-blue-500 px-6 py-2.5 rounded-xl font-semibold transition-colors"
-          >Retake Quiz</router-link>
-        </div>
       </div>
 
       <!-- Breakdown -->
