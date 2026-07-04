@@ -6,14 +6,14 @@
 
       <form @submit.prevent="handleLogin" class="space-y-4">
         <div>
-          <label class="block text-sm text-gray-400 mb-1">Username</label>
+          <label class="block text-sm text-gray-400 mb-1">Email</label>
           <input
-            v-model="username"
+            v-model="email"
             type="text"
-            autocomplete="username"
+            autocomplete="email"
             required
             class="w-full bg-gray-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter username"
+            placeholder="Enter email address"
           />
         </div>
 
@@ -58,7 +58,7 @@ import { useAuthStore } from '../stores/auth'
 const router = useRouter()
 const auth = useAuthStore()
 
-const username = ref('')
+const email = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
@@ -67,7 +67,7 @@ async function handleLogin() {
   error.value = ''
   loading.value = true
   try {
-    await auth.login(username.value, password.value)
+    await auth.login(email.value, password.value)
     router.push('/quiz')
   } catch (e) {
     error.value = e.response?.data?.error || 'Login failed. Please try again.'

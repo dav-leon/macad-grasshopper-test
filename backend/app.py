@@ -3,6 +3,9 @@ import io
 import os
 import json
 import uuid
+import secrets
+import string
+import re
 import datetime
 from functools import wraps
 
@@ -47,6 +50,45 @@ def write_settings(data):
 
 def find_user(users, user_id):
     return next((u for u in users if u["id"] == user_id), None)
+
+
+def find_user_by_email(users, email):
+    email = email.strip().lower()
+    return next((u for u in users if u["username"].lower() == email), None)
+
+
+EMAIL_REGEX = re.compile(
+    r"^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+"
+    r"(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+    r"@(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+"
+    r"[A-Za-z]{2,}$"
+)
+
+
+def is_valid_email(email):
+    if not email or len(email) > 254:
+        return False
+    return bool(EMAIL_REGEX.match(email))
+
+
+def public_user(user):
+    return {
+        "id": user["id"],
+        "username": user["username"],
+        "email": user["username"],
+        "first_name": user.get("first_name", ""),
+        "last_name": user.get("last_name", ""),
+        "is_admin": user["is_admin"],
+    }
+
+
+def hash_password(password):
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def generate_password(length=8):
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 def user_has_results(user):
@@ -118,27 +160,31 @@ def require_admin(f):
 @app.route("/api/register", methods=["POST"])
 def register():
     data = request.get_json() or {}
-    username = data.get("username", "").strip()
+    first_name = data.get("first_name", "").strip()
+    last_name = data.get("last_name", "").strip()
+    email = data.get("email", "").strip().lower()
     password = data.get("password", "")
 
-    if not username or not password:
-        return jsonify({"error": "Username and password are required"}), 400
+    if not first_name or not last_name or not email or not password:
+        return jsonify({"error": "First name, last name, email, and password are required"}), 400
+    if not is_valid_email(email):
+        return jsonify({"error": "Please enter a valid email address"}), 400
     if len(password) < 4:
         return jsonify({"error": "Password must be at least 4 characters"}), 400
 
     users = read_json(USERS_FILE)
 
-    if any(u["username"] == username for u in users):
-        return jsonify({"error": "Username already taken"}), 409
+    if any(u["username"].lower() == email for u in users):
+        return jsonify({"error": "An account with this email already exists"}), 409
 
     is_admin = len(users) == 0  # first user becomes admin
 
-    password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
     user = {
         "id": str(uuid.uuid4()),
-        "username": username,
-        "password_hash": password_hash,
+        "first_name": first_name,
+        "last_name": last_name,
+        "username": email,
+        "password_hash": hash_password(password),
         "is_admin": is_admin,
         "quiz_started": False,
         "quiz_started_at": None,
@@ -153,18 +199,20 @@ def register():
 @app.route("/api/login", methods=["POST"])
 def login():
     data = request.get_json() or {}
-    username = data.get("username", "").strip()
+    email = data.get("email", "").strip().lower()
     password = data.get("password", "")
 
     users = read_json(USERS_FILE)
-    user = next((u for u in users if u["username"] == username), None)
+    user = find_user_by_email(users, email)
 
     if not user or not bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
-        return jsonify({"error": "Invalid username or password"}), 401
+        return jsonify({"error": "Invalid email or password"}), 401
 
     payload = {
         "id": user["id"],
         "username": user["username"],
+        "first_name": user.get("first_name", ""),
+        "last_name": user.get("last_name", ""),
         "is_admin": user["is_admin"],
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24),
     }
@@ -172,11 +220,7 @@ def login():
 
     return jsonify({
         "token": token,
-        "user": {
-            "id": user["id"],
-            "username": user["username"],
-            "is_admin": user["is_admin"],
-        },
+        "user": public_user(user),
     })
 
 
@@ -193,6 +237,7 @@ def get_quiz_status():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
+    is_admin = bool(user.get("is_admin"))
     quiz_started = bool(user.get("quiz_started"))
     has_result = user_has_results(user)
     questions = read_json(QUESTIONS_FILE)
@@ -201,7 +246,7 @@ def get_quiz_status():
         "welcome_text": settings.get("welcome_text", ""),
         "quiz_started": quiz_started,
         "has_result": has_result,
-        "can_take_quiz": not quiz_started and not has_result,
+        "can_take_quiz": is_admin or (not quiz_started and not has_result),
         "question_count": len(questions),
     })
 
@@ -215,7 +260,7 @@ def start_quiz():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    if user.get("quiz_started") or user_has_results(user):
+    if not user.get("is_admin") and (user.get("quiz_started") or user_has_results(user)):
         return jsonify({"error": "Quiz already started"}), 403
 
     questions = read_json(QUESTIONS_FILE)
@@ -259,7 +304,7 @@ def submit_quiz():
     if not user.get("quiz_started"):
         return jsonify({"error": "Quiz not started"}), 403
 
-    if user_has_results(user):
+    if not user.get("is_admin") and user_has_results(user):
         return jsonify({"error": "Quiz already submitted"}), 403
 
     questions = read_json(QUESTIONS_FILE)
@@ -299,6 +344,10 @@ def submit_quiz():
                     for r in results
                 ],
             })
+            # Admins may retake the quiz, so clear the in-progress flag.
+            if u.get("is_admin"):
+                u["quiz_started"] = False
+                u["quiz_started_at"] = None
             break
     write_json(USERS_FILE, users)
 
@@ -388,6 +437,9 @@ def _build_admin_results():
         participants.append({
             "id": user["id"],
             "username": user["username"],
+            "first_name": user.get("first_name", ""),
+            "last_name": user.get("last_name", ""),
+            "is_admin": bool(user.get("is_admin")),
             "quiz_started": bool(user.get("quiz_started")),
             "quiz_started_at": user.get("quiz_started_at"),
             "results": user.get("results", []),
@@ -418,7 +470,7 @@ def admin_export_results():
     output = io.StringIO()
     writer = csv.writer(output)
 
-    header = ["username", "attempt_date", "time_taken_seconds"]
+    header = ["email", "first_name", "last_name", "attempt_date", "time_taken_seconds"]
     header.extend(f"Q{q['id']}" for q in questions)
     header.extend(["total_score", "total_questions"])
     writer.writerow(header)
@@ -427,6 +479,8 @@ def admin_export_results():
         for attempt in participant["results"]:
             row = [
                 participant["username"],
+                participant.get("first_name", ""),
+                participant.get("last_name", ""),
                 attempt.get("date", ""),
                 attempt.get("time_taken", ""),
             ]
@@ -479,6 +533,75 @@ def admin_delete_result():
 
     write_json(USERS_FILE, users)
     return jsonify({"message": "Deleted"})
+
+
+@app.route("/api/admin/results/all", methods=["DELETE"])
+@require_admin
+def admin_delete_all_results():
+    users = read_json(USERS_FILE)
+    cleared = 0
+
+    for user in users:
+        if user.get("results") or user.get("quiz_started"):
+            cleared += 1
+        user["results"] = []
+        user["quiz_started"] = False
+        user["quiz_started_at"] = None
+
+    write_json(USERS_FILE, users)
+    return jsonify({"message": "All participant results deleted", "cleared": cleared})
+
+
+@app.route("/api/admin/password", methods=["PUT"])
+@require_admin
+def admin_change_password():
+    data = request.get_json() or {}
+    current_password = data.get("current_password", "")
+    new_password = data.get("new_password", "")
+
+    if not current_password or not new_password:
+        return jsonify({"error": "Current and new password are required"}), 400
+    if len(new_password) < 4:
+        return jsonify({"error": "Password must be at least 4 characters"}), 400
+
+    users = read_json(USERS_FILE)
+    user = find_user(users, request.current_user["id"])
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    if not bcrypt.checkpw(current_password.encode(), user["password_hash"].encode()):
+        return jsonify({"error": "Current password is incorrect"}), 401
+
+    user["password_hash"] = hash_password(new_password)
+    write_json(USERS_FILE, users)
+    return jsonify({"message": "Password updated"})
+
+
+@app.route("/api/admin/users/<user_id>/password", methods=["PUT"])
+@require_admin
+def admin_reset_user_password(user_id):
+    data = request.get_json() or {}
+    new_password = (data.get("new_password") or "").strip()
+
+    if new_password and len(new_password) < 4:
+        return jsonify({"error": "Password must be at least 4 characters"}), 400
+    if not new_password:
+        new_password = generate_password()
+
+    users = read_json(USERS_FILE)
+    user = find_user(users, user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    if user.get("is_admin"):
+        return jsonify({"error": "Use Change Password to update the admin account"}), 400
+
+    user["password_hash"] = hash_password(new_password)
+    write_json(USERS_FILE, users)
+    return jsonify({
+        "message": "Password reset",
+        "username": user["username"],
+        "password": new_password,
+    })
 
 
 @app.route("/api/admin/settings", methods=["GET"])

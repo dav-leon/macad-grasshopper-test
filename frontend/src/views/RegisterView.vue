@@ -6,14 +6,38 @@
 
       <form @submit.prevent="handleRegister" class="space-y-4">
         <div>
-          <label class="block text-sm text-gray-400 mb-1">Username</label>
+          <label class="block text-sm text-gray-400 mb-1">First Name</label>
           <input
-            v-model="username"
+            v-model="firstName"
             type="text"
-            autocomplete="username"
+            autocomplete="given-name"
             required
             class="w-full bg-gray-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Choose a username"
+            placeholder="Enter first name"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">Last Name</label>
+          <input
+            v-model="lastName"
+            type="text"
+            autocomplete="family-name"
+            required
+            class="w-full bg-gray-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter last name"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">Email</label>
+          <input
+            v-model="email"
+            type="email"
+            autocomplete="email"
+            required
+            class="w-full bg-gray-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter email address"
           />
         </div>
 
@@ -62,18 +86,33 @@ import { useAuthStore } from '../stores/auth'
 const router = useRouter()
 const auth = useAuthStore()
 
-const username = ref('')
+const firstName = ref('')
+const lastName = ref('')
+const email = ref('')
 const password = ref('')
 const error = ref('')
 const success = ref('')
 const loading = ref(false)
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
 async function handleRegister() {
   error.value = ''
   success.value = ''
+
+  if (!EMAIL_REGEX.test(email.value.trim())) {
+    error.value = 'Please enter a valid email address.'
+    return
+  }
+
   loading.value = true
   try {
-    const data = await auth.register(username.value, password.value)
+    const data = await auth.register(
+      firstName.value,
+      lastName.value,
+      email.value,
+      password.value,
+    )
     success.value = data.is_admin
       ? 'Account created! You are the first user — admin role granted. Redirecting…'
       : 'Account created! Redirecting to login…'

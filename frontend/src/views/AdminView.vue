@@ -1,6 +1,92 @@
 <template>
   <div class="min-h-screen p-6 max-w-6xl mx-auto">
-    <h1 class="text-2xl font-bold mb-6 text-purple-400">Admin Panel</h1>
+    <h1 class="text-2xl font-bold mb-2 text-purple-400">Admin Panel</h1>
+    <AdminNav />
+
+    <!-- Stats row -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <router-link
+        to="/admin/questions"
+        class="bg-gray-800 rounded-xl p-5 text-center hover:bg-gray-700 hover:ring-1 hover:ring-purple-500/50 transition-all block"
+      >
+        <div class="text-4xl font-extrabold text-blue-400">{{ questions.length }}</div>
+        <div class="text-gray-400 text-sm mt-1">Total Questions</div>
+        <div class="text-purple-400 text-xs mt-2">Manage questions →</div>
+      </router-link>
+      <div class="bg-gray-800 rounded-xl p-5 text-center">
+        <div class="text-4xl font-extrabold text-green-400">
+          {{ avgTimeLimit > 0 ? avgTimeLimit + 's' : '—' }}
+        </div>
+        <div class="text-gray-400 text-sm mt-1">Avg Time Limit</div>
+      </div>
+      <div class="bg-gray-800 rounded-xl p-5 text-center">
+        <div class="text-4xl font-extrabold text-yellow-400">
+          {{ questions.length > 0 ? Math.ceil(questions.length * avgTimeLimit / 60) + ' min' : '—' }}
+        </div>
+        <div class="text-gray-400 text-sm mt-1">Est. Quiz Duration</div>
+      </div>
+    </div>
+
+    <!-- Account -->
+    <div class="bg-gray-800 rounded-xl p-6 shadow-xl mb-8">
+      <h2 class="font-semibold text-gray-200 mb-1">Account</h2>
+      <p class="text-sm text-gray-500 mb-4">
+        Change the password for your admin account.
+      </p>
+      <button
+        v-if="!showPasswordForm"
+        @click="openPasswordForm"
+        class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+      >Change Password</button>
+      <form v-else @submit.prevent="changePassword" class="space-y-4 max-w-md">
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">Current Password</label>
+          <input
+            v-model="passwordForm.current"
+            type="password"
+            autocomplete="current-password"
+            required
+            class="w-full bg-gray-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">New Password</label>
+          <input
+            v-model="passwordForm.new"
+            type="password"
+            autocomplete="new-password"
+            required
+            minlength="4"
+            class="w-full bg-gray-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">Confirm New Password</label>
+          <input
+            v-model="passwordForm.confirm"
+            type="password"
+            autocomplete="new-password"
+            required
+            minlength="4"
+            class="w-full bg-gray-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
+        <div class="flex items-center gap-4">
+          <button
+            type="submit"
+            :disabled="changingPassword"
+            class="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+          >{{ changingPassword ? 'Saving…' : 'Update Password' }}</button>
+          <button
+            type="button"
+            @click="closePasswordForm"
+            class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+          >Cancel</button>
+          <span v-if="passwordSaved" class="text-green-400 text-sm">Password updated!</span>
+          <span v-if="passwordError" class="text-red-400 text-sm">{{ passwordError }}</span>
+        </div>
+      </form>
+    </div>
 
     <!-- Welcome text -->
     <div class="bg-gray-800 rounded-xl p-6 shadow-xl mb-8">
@@ -24,488 +110,31 @@
         <span v-if="welcomeError" class="text-red-400 text-sm">{{ welcomeError }}</span>
       </div>
     </div>
-
-    <!-- Stats row -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-      <div class="bg-gray-800 rounded-xl p-5 text-center">
-        <div class="text-4xl font-extrabold text-blue-400">{{ questions.length }}</div>
-        <div class="text-gray-400 text-sm mt-1">Total Questions</div>
-      </div>
-      <div class="bg-gray-800 rounded-xl p-5 text-center">
-        <div class="text-4xl font-extrabold text-green-400">
-          {{ avgTimeLimit > 0 ? avgTimeLimit + 's' : '—' }}
-        </div>
-        <div class="text-gray-400 text-sm mt-1">Avg Time Limit</div>
-      </div>
-      <div class="bg-gray-800 rounded-xl p-5 text-center">
-        <div class="text-4xl font-extrabold text-yellow-400">
-          {{ questions.length > 0 ? Math.ceil(questions.length * avgTimeLimit / 60) + ' min' : '—' }}
-        </div>
-        <div class="text-gray-400 text-sm mt-1">Est. Quiz Duration</div>
-      </div>
-    </div>
-
-    <!-- Questions table -->
-    <div class="bg-gray-800 rounded-xl overflow-hidden shadow-xl">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-        <h2 class="font-semibold text-gray-200">Questions</h2>
-        <button
-          @click="openAdd"
-          class="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-        >+ Add Question</button>
-      </div>
-
-      <div v-if="questions.length === 0" class="text-center text-gray-500 py-12">
-        No questions yet. Add your first one!
-      </div>
-
-      <div v-else class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="text-gray-400 bg-gray-700/50 text-xs uppercase tracking-wider">
-            <tr>
-              <th class="px-4 py-3 text-left">ID</th>
-              <th class="px-4 py-3 text-left">Question</th>
-              <th class="px-4 py-3 text-left">Options</th>
-              <th class="px-4 py-3 text-left">Answer</th>
-              <th class="px-4 py-3 text-left">Time</th>
-              <th class="px-4 py-3 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-700">
-            <tr v-for="q in questions" :key="q.id" class="hover:bg-gray-700/30 transition-colors">
-              <td class="px-4 py-3 text-gray-500 font-mono">{{ q.id }}</td>
-              <td class="px-4 py-3 text-gray-200 max-w-xs">
-                <div class="flex items-start gap-2">
-                  <img
-                    v-if="q.image"
-                    :src="q.image"
-                    class="w-10 h-10 rounded object-cover shrink-0 bg-gray-900"
-                    title="Question has image"
-                  />
-                  <span class="line-clamp-2">{{ q.question }}</span>
-                </div>
-              </td>
-              <td class="px-4 py-3">
-                <div v-for="(opt, i) in q.options" :key="i" class="text-xs text-gray-400 leading-5">
-                  <span class="font-bold text-gray-500">{{ String.fromCharCode(65 + i) }}.</span>
-                  {{ opt }}
-                </div>
-              </td>
-              <td class="px-4 py-3">
-                <span class="bg-green-900/40 text-green-400 border border-green-700 px-2 py-0.5 rounded-md text-xs font-bold">
-                  {{ String.fromCharCode(65 + q.answer) }}
-                </span>
-              </td>
-              <td class="px-4 py-3">
-                <template v-if="timeEdit.id === q.id">
-                  <div class="flex items-center gap-1">
-                    <input
-                      ref="timeInput"
-                      v-model.number="timeEdit.value"
-                      type="number"
-                      min="5"
-                      max="300"
-                      class="w-16 bg-gray-700 border border-purple-500 rounded px-2 py-0.5 text-gray-100 text-sm focus:outline-none"
-                      @keyup.enter="saveTimeLimit(q)"
-                      @keyup.escape="timeEdit.id = null"
-                      @blur="saveTimeLimit(q)"
-                    />
-                    <span class="text-gray-500 text-xs">s</span>
-                  </div>
-                </template>
-                <button
-                  v-else
-                  @click="startTimeEdit(q)"
-                  class="text-gray-400 hover:text-white hover:bg-gray-700 px-2 py-0.5 rounded transition-colors text-sm"
-                  title="Click to edit"
-                >{{ q.time_limit }}s</button>
-              </td>
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-2">
-                  <button
-                    @click="openEdit(q)"
-                    class="text-blue-400 hover:text-blue-300 text-xs font-medium transition-colors"
-                  >Edit</button>
-
-                  <template v-if="deleteConfirm === q.id">
-                    <button
-                      @click="deleteQuestion(q.id)"
-                      class="text-red-400 hover:text-red-300 text-xs font-medium transition-colors"
-                    >Confirm?</button>
-                    <button
-                      @click="deleteConfirm = null"
-                      class="text-gray-400 hover:text-gray-300 text-xs transition-colors"
-                    >Cancel</button>
-                  </template>
-                  <button
-                    v-else
-                    @click="deleteConfirm = q.id"
-                    class="text-red-400 hover:text-red-300 text-xs font-medium transition-colors"
-                  >Delete</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Participant results -->
-    <div class="bg-gray-800 rounded-xl overflow-hidden shadow-xl mt-8">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-        <h2 class="font-semibold text-gray-200">Participant Results</h2>
-        <button
-          @click="exportCsv"
-          :disabled="!hasAttempts || exporting"
-          class="bg-green-700 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-        >{{ exporting ? 'Exporting…' : 'Export CSV' }}</button>
-      </div>
-
-      <div v-if="resultsLoading" class="text-center text-gray-500 py-12">
-        Loading results…
-      </div>
-
-      <div v-else-if="!hasAttempts" class="text-center text-gray-500 py-12">
-        No quiz attempts yet.
-      </div>
-
-      <div v-else class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="text-gray-400 bg-gray-700 text-xs uppercase tracking-wider">
-            <tr>
-              <th class="sticky left-0 z-20 bg-gray-700 px-4 py-3 text-left w-[150px] min-w-[150px]">Participant</th>
-              <th class="sticky left-[150px] z-20 bg-gray-700 px-4 py-3 text-left w-[170px] min-w-[170px]">Date</th>
-              <th class="sticky left-[320px] z-20 bg-gray-700 px-4 py-3 text-left w-[70px] min-w-[70px] border-r border-gray-600">Time</th>
-              <th
-                v-for="q in resultQuestions"
-                :key="q.id"
-                class="px-4 py-3 text-center min-w-[56px]"
-                :title="q.question"
-              >Q{{ q.id }}</th>
-              <th class="sticky right-[96px] z-20 bg-gray-700 px-4 py-3 text-center w-[96px] min-w-[96px] border-l border-gray-600">Total</th>
-              <th class="sticky right-0 z-20 bg-gray-700 px-4 py-3 text-left w-[96px] min-w-[96px]">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-700">
-            <tr
-              v-for="row in resultRows"
-              :key="row.key"
-              class="group hover:bg-gray-700/30 transition-colors"
-            >
-              <td class="sticky left-0 z-10 bg-gray-800 group-hover:bg-gray-700 px-4 py-3 text-gray-200 font-medium w-[150px] min-w-[150px]">{{ row.username }}</td>
-              <td class="sticky left-[150px] z-10 bg-gray-800 group-hover:bg-gray-700 px-4 py-3 text-gray-400 whitespace-nowrap w-[170px] min-w-[170px]">
-                {{ row.abandoned ? 'Started (not completed)' : formatDate(row.date) }}
-              </td>
-              <td class="sticky left-[320px] z-10 bg-gray-800 group-hover:bg-gray-700 px-4 py-3 text-gray-400 w-[70px] min-w-[70px] border-r border-gray-700">{{ row.abandoned ? '—' : row.timeTaken + 's' }}</td>
-              <td
-                v-for="q in resultQuestions"
-                :key="q.id"
-                class="px-4 py-3 text-center min-w-[56px]"
-              >
-                <span v-if="row.abandoned" class="text-gray-600">—</span>
-                <span
-                  v-else-if="row.questionScores[q.id] === 1"
-                  class="text-green-400 font-bold"
-                >1</span>
-                <span
-                  v-else-if="row.questionScores[q.id] === 0"
-                  class="text-red-400 font-bold"
-                >0</span>
-                <span v-else class="text-gray-600">—</span>
-              </td>
-              <td class="sticky right-[96px] z-10 bg-gray-800 group-hover:bg-gray-700 px-4 py-3 text-center font-bold text-yellow-400 w-[96px] min-w-[96px] border-l border-gray-700">
-                <span v-if="row.abandoned" class="text-gray-500 text-sm font-normal">Abandoned</span>
-                <span v-else>{{ row.score }}/{{ row.total }}</span>
-              </td>
-              <td class="sticky right-0 z-10 bg-gray-800 group-hover:bg-gray-700 px-4 py-3 w-[96px] min-w-[96px]">
-                <div class="flex items-center gap-2">
-                  <template v-if="resultDeleteConfirm === row.key">
-                    <button
-                      @click="deleteResult(row)"
-                      class="text-red-400 hover:text-red-300 text-xs font-medium transition-colors"
-                    >Confirm?</button>
-                    <button
-                      @click="resultDeleteConfirm = null"
-                      class="text-gray-400 hover:text-gray-300 text-xs transition-colors"
-                    >Cancel</button>
-                  </template>
-                  <button
-                    v-else
-                    @click="resultDeleteConfirm = row.key"
-                    class="text-red-400 hover:text-red-300 text-xs font-medium transition-colors"
-                  >Delete</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Slide-in panel overlay -->
-    <Transition name="slide">
-      <div v-if="showForm" class="fixed inset-0 flex justify-end z-50">
-        <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/60" @click="closeForm"></div>
-
-        <!-- Panel -->
-        <div class="relative bg-gray-800 w-full max-w-md h-full overflow-y-auto shadow-2xl flex flex-col">
-          <div class="flex items-center justify-between px-6 py-5 border-b border-gray-700">
-            <h3 class="text-xl font-bold text-gray-100">
-              {{ editingId ? 'Edit Question' : 'Add Question' }}
-            </h3>
-            <button @click="closeForm" class="text-gray-400 hover:text-gray-200 text-2xl leading-none">&times;</button>
-          </div>
-
-          <form @submit.prevent="saveQuestion" class="p-6 space-y-5 flex-1">
-            <!-- Question text -->
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">Question</label>
-              <textarea
-                v-model="form.question"
-                required
-                rows="3"
-                class="w-full bg-gray-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-                placeholder="Enter question text…"
-              ></textarea>
-            </div>
-
-            <!-- Options -->
-            <div v-for="i in 4" :key="i">
-              <label class="block text-sm text-gray-400 mb-1">
-                Option {{ String.fromCharCode(64 + i) }}
-              </label>
-              <input
-                v-model="form.options[i - 1]"
-                required
-                type="text"
-                class="w-full bg-gray-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                :placeholder="`Option ${String.fromCharCode(64 + i)}`"
-              />
-            </div>
-
-            <!-- Correct answer -->
-            <div>
-              <label class="block text-sm text-gray-400 mb-2">Correct Answer</label>
-              <div class="flex gap-4">
-                <label
-                  v-for="i in 4"
-                  :key="i"
-                  class="flex items-center gap-1.5 cursor-pointer"
-                >
-                  <input
-                    type="radio"
-                    :value="i - 1"
-                    v-model="form.answer"
-                    class="accent-purple-500 w-4 h-4"
-                  />
-                  <span class="text-sm font-semibold">{{ String.fromCharCode(64 + i) }}</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- Image -->
-            <div>
-              <label class="block text-sm text-gray-400 mb-2">Image <span class="text-gray-600">(optional)</span></label>
-
-              <!-- Preview -->
-              <div v-if="form.image" class="relative mb-3 rounded-xl overflow-hidden bg-gray-900">
-                <img :src="form.image" class="w-full max-h-48 object-contain" />
-                <button
-                  type="button"
-                  @click="removeImage"
-                  class="absolute top-2 right-2 bg-red-600 hover:bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-base leading-none transition-colors"
-                  title="Remove image"
-                >&times;</button>
-              </div>
-              <div
-                v-else
-                class="mb-3 h-24 border-2 border-dashed border-gray-600 rounded-xl flex items-center justify-center text-gray-600 text-sm select-none"
-              >No image</div>
-
-              <!-- File upload -->
-              <label class="flex items-center justify-center gap-2 cursor-pointer bg-gray-700 hover:bg-gray-600 py-2 rounded-lg text-sm mb-3 transition-colors">
-                <span>📁</span> Choose file
-                <input type="file" accept="image/*" class="hidden" @change="onFileSelect" />
-              </label>
-
-              <!-- URL input -->
-              <input
-                v-model="imageUrlInput"
-                type="url"
-                placeholder="…or paste an image URL"
-                class="w-full bg-gray-700 rounded-lg px-4 py-2 text-gray-100 placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                @input="onUrlInput"
-              />
-              <p v-if="imageError" class="text-red-400 text-xs mt-1">{{ imageError }}</p>
-            </div>
-
-            <!-- Time limit -->
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">Time Limit (seconds)</label>
-              <input
-                v-model.number="form.time_limit"
-                type="number"
-                min="5"
-                max="300"
-                required
-                class="w-full bg-gray-700 rounded-lg px-4 py-2.5 text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-            </div>
-
-            <p v-if="formError" class="text-red-400 text-sm bg-red-900/20 border border-red-800 rounded-lg px-3 py-2">
-              {{ formError }}
-            </p>
-
-            <div class="flex gap-3 pt-2">
-              <button
-                type="submit"
-                :disabled="saving"
-                class="flex-1 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 py-2.5 rounded-xl font-semibold transition-colors"
-              >{{ saving ? 'Saving…' : (editingId ? 'Update' : 'Add Question') }}</button>
-              <button
-                type="button"
-                @click="closeForm"
-                class="flex-1 bg-gray-700 hover:bg-gray-600 py-2.5 rounded-xl font-semibold transition-colors"
-              >Cancel</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
+import AdminNav from '../components/AdminNav.vue'
 
 const questions = ref([])
 const welcomeText = ref('')
 const savingWelcome = ref(false)
 const welcomeSaved = ref(false)
 const welcomeError = ref('')
-const resultQuestions = ref([])
-const participants = ref([])
-const resultsLoading = ref(false)
-const exporting = ref(false)
-const showForm = ref(false)
-const editingId = ref(null)
-const deleteConfirm = ref(null)
-const resultDeleteConfirm = ref(null)
-const saving = ref(false)
-const formError = ref('')
 
-const timeInput = ref(null)
-const timeEdit = ref({ id: null, value: null })
-
-const imageUrlInput = ref('')
-const imageError = ref('')
-
-function onFileSelect(e) {
-  const file = e.target.files[0]
-  if (!file) return
-  if (file.size > 2 * 1024 * 1024) {
-    imageError.value = 'File must be under 2 MB'
-    e.target.value = ''
-    return
-  }
-  imageError.value = ''
-  const reader = new FileReader()
-  reader.onload = () => {
-    form.value.image = reader.result
-    imageUrlInput.value = ''
-  }
-  reader.readAsDataURL(file)
-}
-
-function onUrlInput() {
-  form.value.image = imageUrlInput.value || null
-  imageError.value = ''
-}
-
-function removeImage() {
-  form.value.image = null
-  imageUrlInput.value = ''
-  imageError.value = ''
-}
-
-function startTimeEdit(q) {
-  timeEdit.value = { id: q.id, value: q.time_limit }
-  nextTick(() => timeInput.value?.focus())
-}
-
-async function saveTimeLimit(q) {
-  const newVal = timeEdit.value.value
-  timeEdit.value = { id: null, value: null }
-  if (!newVal || newVal === q.time_limit) return
-  try {
-    await axios.put(`/api/admin/questions/${q.id}`, { ...q, time_limit: newVal })
-    q.time_limit = newVal  // optimistic update — no full reload needed
-  } catch (e) {
-    console.error('Failed to update time limit', e)
-  }
-}
+const showPasswordForm = ref(false)
+const changingPassword = ref(false)
+const passwordSaved = ref(false)
+const passwordError = ref('')
+const passwordForm = ref({ current: '', new: '', confirm: '' })
 
 const avgTimeLimit = computed(() => {
   if (questions.value.length === 0) return 0
   const sum = questions.value.reduce((acc, q) => acc + q.time_limit, 0)
   return Math.round(sum / questions.value.length)
 })
-
-const hasAttempts = computed(() => resultRows.value.length > 0)
-
-const resultRows = computed(() => {
-  const rows = []
-  for (const participant of participants.value) {
-    for (const [index, attempt] of (participant.results || []).entries()) {
-      const questionScores = {}
-      for (const q of attempt.questions || []) {
-        questionScores[q.id] = q.is_correct ? 1 : 0
-      }
-      rows.push({
-        key: `${participant.id}-${attempt.date || index}`,
-        userId: participant.id,
-        username: participant.username,
-        date: attempt.date,
-        timeTaken: attempt.time_taken ?? '—',
-        score: attempt.score ?? 0,
-        total: attempt.total ?? resultQuestions.value.length,
-        questionScores,
-        abandoned: false,
-      })
-    }
-
-    if (participant.quiz_started && !(participant.results || []).length) {
-      rows.push({
-        key: `${participant.id}-__abandoned__`,
-        userId: participant.id,
-        username: participant.username,
-        date: '__abandoned__',
-        timeTaken: '—',
-        score: '—',
-        total: '—',
-        questionScores: {},
-        abandoned: true,
-      })
-    }
-  }
-  return rows.sort((a, b) => {
-    if (a.abandoned && !b.abandoned) return -1
-    if (!a.abandoned && b.abandoned) return 1
-    return (b.date || '').localeCompare(a.date || '')
-  })
-})
-
-function formatDate(iso) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString()
-}
-
-function defaultForm() {
-  return { question: '', options: ['', '', '', ''], answer: 0, time_limit: 30, image: null }
-}
-const form = ref(defaultForm())
 
 async function loadQuestions() {
   try {
@@ -540,132 +169,49 @@ async function saveWelcomeText() {
   }
 }
 
-async function loadResults() {
-  resultsLoading.value = true
-  try {
-    const res = await axios.get('/api/admin/results')
-    resultQuestions.value = res.data.questions || []
-    participants.value = res.data.participants || []
-  } catch (e) {
-    console.error('Failed to load results', e)
-  } finally {
-    resultsLoading.value = false
-  }
+function openPasswordForm() {
+  passwordForm.value = { current: '', new: '', confirm: '' }
+  passwordError.value = ''
+  passwordSaved.value = false
+  showPasswordForm.value = true
 }
 
-async function exportCsv() {
-  exporting.value = true
-  try {
-    const res = await axios.get('/api/admin/results/export', { responseType: 'blob' })
-    const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }))
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'quiz-results.csv'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
-  } catch (e) {
-    console.error('Failed to export results', e)
-  } finally {
-    exporting.value = false
-  }
+function closePasswordForm() {
+  showPasswordForm.value = false
+  passwordForm.value = { current: '', new: '', confirm: '' }
+  passwordError.value = ''
 }
 
-async function deleteResult(row) {
-  if (!row.userId || !row.date) return
+async function changePassword() {
+  passwordError.value = ''
+  passwordSaved.value = false
+
+  if (passwordForm.value.new !== passwordForm.value.confirm) {
+    passwordError.value = 'New passwords do not match.'
+    return
+  }
+
+  changingPassword.value = true
   try {
-    await axios.delete('/api/admin/results', {
-      data: { user_id: row.userId, date: row.date },
+    await axios.put('/api/admin/password', {
+      current_password: passwordForm.value.current,
+      new_password: passwordForm.value.new,
     })
-    resultDeleteConfirm.value = null
-    await loadResults()
+    passwordSaved.value = true
+    passwordForm.value = { current: '', new: '', confirm: '' }
+    setTimeout(() => {
+      passwordSaved.value = false
+      showPasswordForm.value = false
+    }, 1500)
   } catch (e) {
-    console.error('Failed to delete result', e)
-  }
-}
-
-function openAdd() {
-  editingId.value = null
-  form.value = defaultForm()
-  formError.value = ''
-  imageUrlInput.value = ''
-  imageError.value = ''
-  showForm.value = true
-}
-
-function openEdit(q) {
-  editingId.value = q.id
-  form.value = {
-    question: q.question,
-    options: [...q.options],
-    answer: q.answer,
-    time_limit: q.time_limit,
-    image: q.image || null,
-  }
-  // Populate URL input only when image is a plain URL, not a data URL
-  imageUrlInput.value = q.image && !q.image.startsWith('data:') ? q.image : ''
-  formError.value = ''
-  imageError.value = ''
-  showForm.value = true
-}
-
-function closeForm() {
-  showForm.value = false
-  imageUrlInput.value = ''
-  imageError.value = ''
-}
-
-async function saveQuestion() {
-  formError.value = ''
-  saving.value = true
-  try {
-    if (editingId.value) {
-      await axios.put(`/api/admin/questions/${editingId.value}`, form.value)
-    } else {
-      await axios.post('/api/admin/questions', form.value)
-    }
-    await loadQuestions()
-    closeForm()
-  } catch (e) {
-    formError.value = e.response?.data?.error || 'Failed to save question.'
+    passwordError.value = e.response?.data?.error || 'Failed to update password.'
   } finally {
-    saving.value = false
-  }
-}
-
-async function deleteQuestion(id) {
-  try {
-    await axios.delete(`/api/admin/questions/${id}`)
-    deleteConfirm.value = null
-    await loadQuestions()
-  } catch (e) {
-    console.error('Delete failed', e)
+    changingPassword.value = false
   }
 }
 
 onMounted(() => {
   loadQuestions()
   loadSettings()
-  loadResults()
 })
 </script>
-
-<style scoped>
-.slide-enter-active,
-.slide-leave-active {
-  transition: opacity 0.25s ease;
-}
-.slide-enter-from,
-.slide-leave-to {
-  opacity: 0;
-}
-.slide-enter-active .relative,
-.slide-leave-active .relative {
-  transition: transform 0.3s ease;
-}
-.slide-enter-from .relative,
-.slide-leave-to .relative {
-  transform: translateX(100%);
-}
-</style>

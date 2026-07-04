@@ -28,6 +28,16 @@ const routes = [
     component: () => import('../views/AdminView.vue'),
     meta: { admin: true },
   },
+  {
+    path: '/admin/questions',
+    component: () => import('../views/AdminQuestionsView.vue'),
+    meta: { admin: true },
+  },
+  {
+    path: '/admin/results',
+    component: () => import('../views/AdminResultsView.vue'),
+    meta: { admin: true },
+  },
 ]
 
 const router = createRouter({

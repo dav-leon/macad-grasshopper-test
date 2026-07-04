@@ -5,7 +5,7 @@ echo Starting MACAD GH-Quiz...
 echo.
 
 start "Quiz Backend" cmd /k "cd /d %~dp0backend && pip install -r requirements.txt -q && python app.py"
-start "Quiz Frontend" cmd /k "cd /d %~dp0frontend && if not exist node_modules npm install && npm run dev"
+start "Quiz Frontend" cmd /k "cd /d %~dp0frontend && (if not exist node_modules npm install) && npm run dev"
 
 echo Backend:  http://localhost:5002
 echo Frontend: http://localhost:5173

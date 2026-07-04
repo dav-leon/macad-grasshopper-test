@@ -4,18 +4,25 @@
     "username": "admin",
     "password_hash": "$2b$12$K1r0DVMreSFRQ2i5Va7/2.slE.phtpDfnwACzXkcTcblQWHJ/jzg6",
     "is_admin": true,
+    "results": [],
+    "quiz_started": true,
+    "quiz_started_at": "2026-07-04T10:14:01.759140"
+  },
+  {
+    "id": "5b450586-419a-473d-96df-e3a15c02a81c",
+    "first_name": "David",
+    "last_name": "Leon",
+    "username": "davidandresleon@gmail.com",
+    "password_hash": "$2b$12$aeEcNA1eRjQg3sue2GzNb.vpv1VLh7Nbc9Uu2dZVbYW09wYGJ44Na",
+    "is_admin": false,
+    "quiz_started": true,
+    "quiz_started_at": "2026-07-03T10:06:33.382984",
     "results": [
       {
-        "date": "2026-02-20T18:59:55.182749",
-        "score": 0,
-        "total": 4,
-        "time_taken": 33
-      },
-      {
-        "date": "2026-07-02T12:02:36.026321",
-        "score": 0,
-        "total": 6,
-        "time_taken": 175,
+        "date": "2026-07-03T10:09:03.478158",
+        "score": 17,
+        "total": 58,
+        "time_taken": 150,
         "questions": [
           {
             "id": 1,
@@ -29,21 +36,281 @@
           },
           {
             "id": 3,
-            "is_correct": false,
-            "user_answer": null
+            "is_correct": true,
+            "user_answer": 0
           },
           {
             "id": 4,
             "is_correct": false,
-            "user_answer": null
+            "user_answer": 1
           },
           {
             "id": 5,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 6,
+            "is_correct": false,
+            "user_answer": 2
+          },
+          {
+            "id": 7,
             "is_correct": false,
             "user_answer": null
           },
           {
-            "id": 6,
+            "id": 8,
+            "is_correct": false,
+            "user_answer": 2
+          },
+          {
+            "id": 9,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 10,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 11,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 12,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 13,
+            "is_correct": false,
+            "user_answer": 2
+          },
+          {
+            "id": 14,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 15,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 16,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 17,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 18,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 19,
+            "is_correct": false,
+            "user_answer": 2
+          },
+          {
+            "id": 20,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 21,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 22,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 23,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 24,
+            "is_correct": false,
+            "user_answer": 3
+          },
+          {
+            "id": 25,
+            "is_correct": false,
+            "user_answer": 2
+          },
+          {
+            "id": 26,
+            "is_correct": false,
+            "user_answer": 2
+          },
+          {
+            "id": 27,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 28,
+            "is_correct": false,
+            "user_answer": 3
+          },
+          {
+            "id": 29,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 30,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 31,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 32,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 33,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 34,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 35,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 36,
+            "is_correct": false,
+            "user_answer": 2
+          },
+          {
+            "id": 37,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 38,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 39,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 40,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 41,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 42,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 43,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 44,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 45,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 46,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 47,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 48,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 49,
+            "is_correct": false,
+            "user_answer": 2
+          },
+          {
+            "id": 50,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 51,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 52,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 53,
+            "is_correct": false,
+            "user_answer": 1
+          },
+          {
+            "id": 54,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 55,
+            "is_correct": true,
+            "user_answer": 0
+          },
+          {
+            "id": 56,
+            "is_correct": false,
+            "user_answer": null
+          },
+          {
+            "id": 57,
+            "is_correct": false,
+            "user_answer": null
+          },
+          {
+            "id": 58,
             "is_correct": false,
             "user_answer": null
           }

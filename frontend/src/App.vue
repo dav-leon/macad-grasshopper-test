@@ -6,7 +6,7 @@
     >
       <span class="font-bold text-blue-400 text-lg tracking-wide">MACAD GH-Quiz</span>
       <div class="flex items-center gap-5 text-sm">
-        <span class="text-gray-400">{{ auth.user?.username }}</span>
+        <span class="text-gray-400">{{ displayName }}</span>
         <router-link
           v-if="auth.isAdmin"
           to="/admin"
@@ -27,11 +27,19 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 
 const router = useRouter()
 const auth = useAuthStore()
+
+const displayName = computed(() => {
+  const u = auth.user
+  if (!u) return ''
+  const name = [u.first_name, u.last_name].filter(Boolean).join(' ')
+  return name || u.email || u.username
+})
 
 function handleLogout() {
   auth.logout()
