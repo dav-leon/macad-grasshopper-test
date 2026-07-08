@@ -21,19 +21,11 @@
             />
             <span class="text-gray-400 text-sm">seconds</span>
           </div>
-          <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
-            <input
-              v-model="applyTimeToAll"
-              type="checkbox"
-              class="rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
-            />
-            Apply to all existing questions
-          </label>
           <button
             @click="saveDefaultTimeLimit"
             :disabled="savingDefaultTimeLimit"
             class="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-          >{{ savingDefaultTimeLimit ? 'Saving…' : 'Save Time Limit' }}</button>
+          >{{ savingDefaultTimeLimit ? 'Applying…' : 'Apply to all questions' }}</button>
           <span v-if="defaultTimeLimitSaved" class="text-green-400 text-sm">Saved!</span>
           <span v-if="defaultTimeLimitError" class="text-red-400 text-sm">{{ defaultTimeLimitError }}</span>
         </div>
@@ -284,7 +276,6 @@ const timeEdit = ref({ id: null, value: null })
 const imageUrlInput = ref('')
 const imageError = ref('')
 const defaultTimeLimit = ref(30)
-const applyTimeToAll = ref(true)
 const savingDefaultTimeLimit = ref(false)
 const defaultTimeLimitSaved = ref(false)
 const defaultTimeLimitError = ref('')
@@ -368,11 +359,8 @@ async function saveDefaultTimeLimit() {
   try {
     await api.put('/api/admin/settings', {
       default_time_limit: time,
-      apply_time_to_all: applyTimeToAll.value,
     })
-    if (applyTimeToAll.value) {
-      await loadQuestions()
-    }
+    await loadQuestions()
     defaultTimeLimitSaved.value = true
     setTimeout(() => { defaultTimeLimitSaved.value = false }, 2000)
   } catch (e) {

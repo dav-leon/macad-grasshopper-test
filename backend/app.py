@@ -633,11 +633,10 @@ def admin_update_settings():
             return jsonify({"error": "default_time_limit must be between 5 and 300 seconds"}), 400
         settings["default_time_limit"] = time_limit
 
-        if data.get("apply_time_to_all"):
-            questions = read_json(QUESTIONS_FILE)
-            for q in questions:
-                q["time_limit"] = time_limit
-            write_json(QUESTIONS_FILE, questions)
+        questions = read_json(QUESTIONS_FILE)
+        for q in questions:
+            q["time_limit"] = time_limit
+        write_json(QUESTIONS_FILE, questions)
 
     write_settings(settings)
     return jsonify(settings)
