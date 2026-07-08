@@ -179,7 +179,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import axios from 'axios'
+import api from '../api'
 import AdminNav from '../components/AdminNav.vue'
 
 const resultQuestions = ref([])
@@ -253,7 +253,7 @@ function formatDate(iso) {
 async function loadResults() {
   resultsLoading.value = true
   try {
-    const res = await axios.get('/api/admin/results')
+    const res = await api.get('/api/admin/results')
     resultQuestions.value = res.data.questions || []
     participants.value = res.data.participants || []
   } catch (e) {
@@ -271,7 +271,7 @@ function openDeleteAllConfirm() {
 async function exportCsv() {
   exporting.value = true
   try {
-    const res = await axios.get('/api/admin/results/export', { responseType: 'blob' })
+    const res = await api.get('/api/admin/results/export', { responseType: 'blob' })
     const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }))
     const link = document.createElement('a')
     link.href = url
@@ -291,7 +291,7 @@ async function deleteAllResults() {
   deleteAllError.value = ''
   deletingAllResults.value = true
   try {
-    await axios.delete('/api/admin/results/all')
+    await api.delete('/api/admin/results/all')
     showDeleteAllConfirm.value = false
     await loadResults()
   } catch (e) {
@@ -305,7 +305,7 @@ async function deleteAllResults() {
 async function deleteResult(row) {
   if (!row.userId || !row.date) return
   try {
-    await axios.delete('/api/admin/results', {
+    await api.delete('/api/admin/results', {
       data: { user_id: row.userId, date: row.date },
     })
     resultDeleteConfirm.value = null
@@ -318,7 +318,7 @@ async function deleteResult(row) {
 async function resetUserPassword(row) {
   if (!row.userId || row.isAdmin) return
   try {
-    const res = await axios.put(`/api/admin/users/${row.userId}/password`, {})
+    const res = await api.put(`/api/admin/users/${row.userId}/password`, {})
     passwordResetConfirm.value = null
     resetPasswordResult.value = {
       email: res.data.username,

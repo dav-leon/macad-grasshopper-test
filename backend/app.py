@@ -40,8 +40,10 @@ def write_json(path, data):
 
 def read_settings():
     if not os.path.exists(SETTINGS_FILE):
-        return {"welcome_text": ""}
-    return read_json(SETTINGS_FILE)
+        return {"welcome_text": "", "default_time_limit": 30}
+    settings = read_json(SETTINGS_FILE)
+    settings.setdefault("default_time_limit", 30)
+    return settings
 
 
 def write_settings(data):
@@ -376,7 +378,7 @@ def admin_add_question():
         "question": data.get("question", "").strip(),
         "options": data.get("options", []),
         "answer": data.get("answer", 0),
-        "time_limit": data.get("time_limit", 30),
+        "time_limit": data.get("time_limit", read_settings().get("default_time_limit", 30)),
         "image": data.get("image"),
     }
 
@@ -614,11 +616,29 @@ def admin_get_settings():
 @require_admin
 def admin_update_settings():
     data = request.get_json() or {}
-    welcome_text = data.get("welcome_text", "")
-    if not isinstance(welcome_text, str):
-        return jsonify({"error": "welcome_text must be a string"}), 400
+    settings = read_settings()
 
-    settings = {"welcome_text": welcome_text.strip()}
+    if "welcome_text" in data:
+        welcome_text = data.get("welcome_text", "")
+        if not isinstance(welcome_text, str):
+            return jsonify({"error": "welcome_text must be a string"}), 400
+        settings["welcome_text"] = welcome_text.strip()
+
+    if "default_time_limit" in data:
+        try:
+            time_limit = int(data["default_time_limit"])
+        except (TypeError, ValueError):
+            return jsonify({"error": "default_time_limit must be an integer"}), 400
+        if time_limit < 5 or time_limit > 300:
+            return jsonify({"error": "default_time_limit must be between 5 and 300 seconds"}), 400
+        settings["default_time_limit"] = time_limit
+
+        if data.get("apply_time_to_all"):
+            questions = read_json(QUESTIONS_FILE)
+            for q in questions:
+                q["time_limit"] = time_limit
+            write_json(QUESTIONS_FILE, questions)
+
     write_settings(settings)
     return jsonify(settings)
 

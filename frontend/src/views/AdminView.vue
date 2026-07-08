@@ -115,7 +115,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import axios from 'axios'
+import api from '../api'
 import AdminNav from '../components/AdminNav.vue'
 
 const questions = ref([])
@@ -138,7 +138,7 @@ const avgTimeLimit = computed(() => {
 
 async function loadQuestions() {
   try {
-    const res = await axios.get('/api/admin/questions')
+    const res = await api.get('/api/admin/questions')
     questions.value = res.data
   } catch (e) {
     console.error('Failed to load questions', e)
@@ -147,7 +147,7 @@ async function loadQuestions() {
 
 async function loadSettings() {
   try {
-    const res = await axios.get('/api/admin/settings')
+    const res = await api.get('/api/admin/settings')
     welcomeText.value = res.data.welcome_text || ''
   } catch (e) {
     console.error('Failed to load settings', e)
@@ -159,7 +159,7 @@ async function saveWelcomeText() {
   welcomeSaved.value = false
   savingWelcome.value = true
   try {
-    await axios.put('/api/admin/settings', { welcome_text: welcomeText.value })
+    await api.put('/api/admin/settings', { welcome_text: welcomeText.value })
     welcomeSaved.value = true
     setTimeout(() => { welcomeSaved.value = false }, 2000)
   } catch (e) {
@@ -193,7 +193,7 @@ async function changePassword() {
 
   changingPassword.value = true
   try {
-    await axios.put('/api/admin/password', {
+    await api.put('/api/admin/password', {
       current_password: passwordForm.value.current,
       new_password: passwordForm.value.new,
     })

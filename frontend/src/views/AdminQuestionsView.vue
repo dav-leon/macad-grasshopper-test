@@ -4,6 +4,41 @@
     <AdminNav />
 
     <div class="bg-gray-800 rounded-xl overflow-hidden shadow-xl">
+      <div class="px-6 py-4 border-b border-gray-700">
+        <h3 class="text-sm font-medium text-gray-200 mb-1">Time per Question</h3>
+        <p class="text-sm text-gray-500 mb-3">
+          Seconds allowed for each quiz question (5–300).
+        </p>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <div class="flex items-center gap-3">
+            <input
+              v-model.number="defaultTimeLimit"
+              type="number"
+              min="5"
+              max="300"
+              required
+              class="w-24 bg-gray-700 rounded-lg px-4 py-2.5 text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <span class="text-gray-400 text-sm">seconds</span>
+          </div>
+          <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+            <input
+              v-model="applyTimeToAll"
+              type="checkbox"
+              class="rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
+            />
+            Apply to all existing questions
+          </label>
+          <button
+            @click="saveDefaultTimeLimit"
+            :disabled="savingDefaultTimeLimit"
+            class="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+          >{{ savingDefaultTimeLimit ? 'Saving…' : 'Save Time Limit' }}</button>
+          <span v-if="defaultTimeLimitSaved" class="text-green-400 text-sm">Saved!</span>
+          <span v-if="defaultTimeLimitError" class="text-red-400 text-sm">{{ defaultTimeLimitError }}</span>
+        </div>
+      </div>
+
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700">
         <h2 class="font-semibold text-gray-200">Questions</h2>
         <button
@@ -233,7 +268,7 @@
 
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
-import axios from 'axios'
+import api from '../api'
 import AdminNav from '../components/AdminNav.vue'
 
 const questions = ref([])
@@ -248,9 +283,20 @@ const timeEdit = ref({ id: null, value: null })
 
 const imageUrlInput = ref('')
 const imageError = ref('')
+const defaultTimeLimit = ref(30)
+const applyTimeToAll = ref(true)
+const savingDefaultTimeLimit = ref(false)
+const defaultTimeLimitSaved = ref(false)
+const defaultTimeLimitError = ref('')
 
 function defaultForm() {
-  return { question: '', options: ['', '', '', ''], answer: 0, time_limit: 30, image: null }
+  return {
+    question: '',
+    options: ['', '', '', ''],
+    answer: 0,
+    time_limit: defaultTimeLimit.value,
+    image: null,
+  }
 }
 const form = ref(defaultForm())
 
@@ -292,16 +338,53 @@ async function saveTimeLimit(q) {
   timeEdit.value = { id: null, value: null }
   if (!newVal || newVal === q.time_limit) return
   try {
-    await axios.put(`/api/admin/questions/${q.id}`, { ...q, time_limit: newVal })
+    await api.put(`/api/admin/questions/${q.id}`, { ...q, time_limit: newVal })
     q.time_limit = newVal
   } catch (e) {
     console.error('Failed to update time limit', e)
   }
 }
 
+async function loadSettings() {
+  try {
+    const res = await api.get('/api/admin/settings')
+    defaultTimeLimit.value = res.data.default_time_limit ?? 30
+  } catch (e) {
+    console.error('Failed to load settings', e)
+  }
+}
+
+async function saveDefaultTimeLimit() {
+  defaultTimeLimitError.value = ''
+  defaultTimeLimitSaved.value = false
+
+  const time = Number(defaultTimeLimit.value)
+  if (!Number.isInteger(time) || time < 5 || time > 300) {
+    defaultTimeLimitError.value = 'Time must be between 5 and 300 seconds.'
+    return
+  }
+
+  savingDefaultTimeLimit.value = true
+  try {
+    await api.put('/api/admin/settings', {
+      default_time_limit: time,
+      apply_time_to_all: applyTimeToAll.value,
+    })
+    if (applyTimeToAll.value) {
+      await loadQuestions()
+    }
+    defaultTimeLimitSaved.value = true
+    setTimeout(() => { defaultTimeLimitSaved.value = false }, 2000)
+  } catch (e) {
+    defaultTimeLimitError.value = e.response?.data?.error || 'Failed to save time limit.'
+  } finally {
+    savingDefaultTimeLimit.value = false
+  }
+}
+
 async function loadQuestions() {
   try {
-    const res = await axios.get('/api/admin/questions')
+    const res = await api.get('/api/admin/questions')
     questions.value = res.data
   } catch (e) {
     console.error('Failed to load questions', e)
@@ -343,9 +426,9 @@ async function saveQuestion() {
   saving.value = true
   try {
     if (editingId.value) {
-      await axios.put(`/api/admin/questions/${editingId.value}`, form.value)
+      await api.put(`/api/admin/questions/${editingId.value}`, form.value)
     } else {
-      await axios.post('/api/admin/questions', form.value)
+      await api.post('/api/admin/questions', form.value)
     }
     await loadQuestions()
     closeForm()
@@ -358,7 +441,7 @@ async function saveQuestion() {
 
 async function deleteQuestion(id) {
   try {
-    await axios.delete(`/api/admin/questions/${id}`)
+    await api.delete(`/api/admin/questions/${id}`)
     deleteConfirm.value = null
     await loadQuestions()
   } catch (e) {
@@ -367,6 +450,7 @@ async function deleteQuestion(id) {
 }
 
 onMounted(() => {
+  loadSettings()
   loadQuestions()
 })
 </script>

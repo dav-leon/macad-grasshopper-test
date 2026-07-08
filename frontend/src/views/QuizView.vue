@@ -138,7 +138,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '../api'
 
 const router = useRouter()
 
@@ -238,7 +238,7 @@ async function submitQuiz() {
   }
 
   try {
-    const res = await axios.post('/api/quiz/submit', {
+    const res = await api.post('/api/quiz/submit', {
       answers: payload,
       time_taken: timeTaken,
     })
@@ -257,7 +257,7 @@ async function startQuiz() {
   startError.value = ''
   starting.value = true
   try {
-    const res = await axios.post('/api/quiz/start')
+    const res = await api.post('/api/quiz/start')
     questions.value = res.data.questions || []
     if (questions.value.length === 0) {
       startError.value = 'No questions are available.'
@@ -278,7 +278,7 @@ async function startQuiz() {
 
 onMounted(async () => {
   try {
-    const statusRes = await axios.get('/api/quiz/status')
+    const statusRes = await api.get('/api/quiz/status')
 
     welcomeText.value = statusRes.data.welcome_text || ''
     hasResult.value = statusRes.data.has_result
